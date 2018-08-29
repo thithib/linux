@@ -35,6 +35,7 @@ struct xpfo {
 };
 
 DEFINE_STATIC_KEY_FALSE(xpfo_inited);
+DEFINE_STATIC_KEY_FALSE(xpfo_do_tlb_flush);
 
 static bool xpfo_disabled __initdata;
 
@@ -45,7 +46,15 @@ static int __init noxpfo_param(char *str)
 	return 0;
 }
 
+static int __init xpfotlbflush_param(char *str)
+{
+	static_branch_enable(&xpfo_do_tlb_flush);
+
+	return 0;
+}
+
 early_param("noxpfo", noxpfo_param);
+early_param("xpfotlbflush", xpfotlbflush_param);
 
 static bool __init need_xpfo(void)
 {
@@ -68,6 +77,13 @@ struct page_ext_operations page_xpfo_ops = {
 	.need = need_xpfo,
 	.init = init_xpfo,
 };
+
+
+static void xpfo_cond_flush_kernel_tlb(struct page *page, int order)
+{
+	if (static_branch_unlikely(&xpfo_do_tlb_flush))
+		xpfo_flush_kernel_tlb(page, order);
+}
 
 static inline struct xpfo *lookup_xpfo(struct page *page)
 {
@@ -107,12 +123,17 @@ void xpfo_alloc_pages(struct page *page, int order, gfp_t gfp)
 		     "xpfo: already mapped page being allocated\n");
 
 		if ((gfp & GFP_HIGHUSER) == GFP_HIGHUSER) {
-			/*
-			 * Tag the page as a user page and flush the TLB if it
-			 * was previously allocated to the kernel.
-			 */
-			if (!test_and_set_bit(XPFO_PAGE_USER, &xpfo->flags))
-				flush_tlb = 1;
+			if (static_branch_unlikely(&xpfo_do_tlb_flush)) {
+				/*
+				 * Tag the page as a user page and flush the TLB if it
+				 * was previously allocated to the kernel.
+				 */
+				if (!test_and_set_bit(XPFO_PAGE_USER, &xpfo->flags))
+					flush_tlb = 1;
+			} else {
+				set_bit(XPFO_PAGE_USER, &xpfo->flags);
+			}
+
 		} else {
 			/* Tag the page as a non-user (kernel) page */
 			clear_bit(XPFO_PAGE_USER, &xpfo->flags);
@@ -120,7 +141,7 @@ void xpfo_alloc_pages(struct page *page, int order, gfp_t gfp)
 	}
 
 	if (flush_tlb)
-		xpfo_flush_kernel_tlb(page, order);
+		xpfo_cond_flush_kernel_tlb(page, order);
 }
 
 void xpfo_free_pages(struct page *page, int order)
@@ -214,7 +235,7 @@ void xpfo_kunmap(void *kaddr, struct page *page)
 		     "xpfo: unmapping already unmapped page\n");
 		set_bit(XPFO_PAGE_UNMAPPED, &xpfo->flags);
 		set_kpte(kaddr, page, __pgprot(0));
-		xpfo_flush_kernel_tlb(page, 0);
+		xpfo_cond_flush_kernel_tlb(page, 0);
 	}
 
 	spin_unlock(&xpfo->maplock);
