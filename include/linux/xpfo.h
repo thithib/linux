@@ -23,7 +23,7 @@ struct page;
 
 #ifdef CONFIG_XPFO
 
-extern struct page_ext_operations page_xpfo_ops;
+void xpfo_init_single_page(struct page *page);
 
 void set_kpte(void *kaddr, struct page *page, pgprot_t prot);
 void xpfo_dma_map_unmap_area(bool map, const void *addr, size_t size,
@@ -39,6 +39,7 @@ bool xpfo_page_is_unmapped(struct page *page);
 
 #else /* !CONFIG_XPFO */
 
+static inline void xpfo_init_single_page(struct page *page) { }
 static inline void xpfo_kmap(void *kaddr, struct page *page) { }
 static inline void xpfo_kunmap(void *kaddr, struct page *page) { }
 static inline void xpfo_alloc_pages(struct page *page, int order, gfp_t gfp) { }

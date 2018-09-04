@@ -204,6 +204,14 @@ struct page {
 #ifdef LAST_CPUPID_NOT_IN_PAGE_FLAGS
 	int _last_cpupid;
 #endif
+
+#ifdef CONFIG_XPFO
+	/* Counts the number of times this page has been kmapped. */
+	atomic_t xpfo_mapcount;
+
+	/* Serialize kmap/kunmap of this page */
+	spinlock_t xpfo_lock;
+#endif
 } _struct_page_alignment;
 
 #define PAGE_FRAG_CACHE_MAX_SIZE	__ALIGN_MASK(32768, ~PAGE_MASK)

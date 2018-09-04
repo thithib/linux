@@ -1017,6 +1017,7 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	if (bad)
 		return false;
 
+	xpfo_free_pages(page, order);
 	page_cpupid_reset_last(page);
 	page->flags &= ~PAGE_FLAGS_CHECK_AT_PREP;
 	reset_page_owner(page, order);
@@ -1031,7 +1032,6 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	kernel_poison_pages(page, 1 << order, 0);
 	kernel_map_pages(page, 1 << order, 0);
 	kasan_free_pages(page, order);
-	xpfo_free_pages(page, order);
 
 	return true;
 }
@@ -1184,6 +1184,7 @@ static void __meminit __init_single_page(struct page *page, unsigned long pfn,
 	if (!is_highmem_idx(zone))
 		set_page_address(page, __va(pfn << PAGE_SHIFT));
 #endif
+	xpfo_init_single_page(page);
 }
 
 #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT

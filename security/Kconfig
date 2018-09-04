@@ -13,7 +13,6 @@ config XPFO
 	bool "Enable eXclusive Page Frame Ownership (XPFO)"
 	default n
 	depends on ARCH_SUPPORTS_XPFO
-	select PAGE_EXTENSION
 	help
 	  This option offers protection against 'ret2dir' kernel attacks.
 	  When enabled, every time a page frame is allocated to user space, it
@@ -24,6 +23,17 @@ config XPFO
 	  There is a slight performance impact when this option is enabled.
 
 	  If in doubt, say "N".
+
+config XPFO_DEBUG
+       bool "Enable debugging of XPFO"
+       default n
+       depends on XPFO
+       help
+         Enables additional checking of XPFO data structures that help find
+	 bugs in the XPFO implementation. This option comes with a slight
+	 performance cost.
+
+	 If in doubt, say "N".
 
 config SECURITY_DMESG_RESTRICT
 	bool "Restrict unprivileged access to the kernel syslog"
